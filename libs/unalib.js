@@ -5,56 +5,21 @@ module.exports = {
 
     // logica que valida si un telefono esta correcto...
     is_valid_phone: function (phone) {
-      // inicializacion lazy
-      var isValid = false;
-      // expresion regular copiada de StackOverflow
-      var re = /^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\./0-9]*$/i;
-  
-      // validacion Regex
-      try {
-        isValid = re.test(phone);
-      } catch (e) {
-        console.log(e);
-      } finally {
-          return isValid;
-      }
-      // fin del try-catch block
+      // Solo acepta formato dddd-dddd
+      var re = /^\d{4}-\d{4}$/;
+      return re.test(phone);
     },
-  
+
     is_valid_url_image: function (url) {
-  
-      // inicializacion lazy
-      var isValid = false;
-      // expresion regular copiada de StackOverflow
-      var re = /(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|jpeg|bmp)/i;
-  
-      // validacion Regex
-      try {
-        isValid = re.test(phone);
-      } catch (e) {
-        console.log(e);
-      } finally {
-          return isValid;
-      }
-      // fin del try-catch block
+      // Solo acepta URLs que terminan en imagen válida
+      var re = /^https?:\/\/.+\.(jpg|jpeg|gif|png|bmp)$/i;
+      return re.test(url);
     },
-  
+
     is_valid_yt_video: function (url) {
-  
-      // inicializacion lazy
-      var isValid = false;
-      // expresion regular copiada de StackOverflow
-      var re = /^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})?$/i;
-  
-      // validacion Regex
-      try {
-        isValid = re.test(phone);
-      } catch (e) {
-        console.log(e);
-      } finally {
-          return isValid;
-      }
-      // fin del try-catch block
+      // Solo acepta URLs válidas de YouTube
+      var re = /^https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]{11}/i;
+      return re.test(url);
     },
   
     getYTVideoId: function(url){
@@ -99,13 +64,60 @@ module.exports = {
         console.log('Error processing message:', e);
         return JSON.stringify({ mensaje: msg }); // Return original message on error
       }
+    },
+  
+    // Nueva funcionalidad propuesta
+    validateMessageSanitized: function(msg) {
+      try {
+          let obj = JSON.parse(msg);
+
+          // Sanitiza el nombre SIEMPRE
+          obj.nombre = sanitizeText(obj.nombre);
+
+          // Si es URL válida de imagen
+          if (this.is_valid_url_image(obj.mensaje)) {
+              obj.mensaje = this.getImageTag(obj.mensaje);
+          }
+          // Si es URL válida de video YouTube
+          else if (this.is_valid_yt_video(obj.mensaje)) {
+              obj.mensaje = this.getEmbeddedCode(obj.mensaje);
+          }
+          // Si es URL pero NO válida
+          else if (/^https?:\/\/.+/.test(obj.mensaje)) {
+              obj.mensaje = '[URL no permitida]';
+          }
+          // Si es texto normal, sanitiza para prevenir XSS
+          else {
+              obj.mensaje = sanitizeText(obj.mensaje);
+          }
+
+          return JSON.stringify(obj);
+      } catch (e) {
+          return JSON.stringify({nombre: "Anonimo", mensaje: "[Mensaje inválido]", color: "#000"});
+      }
     }
-  
-  
-  
-    
-    
-  
-  // fin del modulo
+
+    // fin del modulo
   };
-  
+
+  // Sanitiza texto para evitar XSS
+  function sanitizeText(text) {
+      return String(text).replace(/[<>&"'`]/g, function (c) {
+          return ({
+              '<': '&lt;',
+              '>': '&gt;',
+              '&': '&amp;',
+              '"': '&quot;',
+              "'": '&#39;',
+              '`': '&#96;'
+          })[c];
+      });
+  }
+
+  // Valida URLs de imágenes y videos
+  function isValidMediaUrl(url) {
+      var imgRegex = /^https?:\/\/.+\.(jpeg|jpg|gif|png)$/i;
+      var mp4Regex = /^https?:\/\/.+\.(mp4|webm|ogg)$/i;
+      var ytRegex = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+$/i;
+      return imgRegex.test(url) || mp4Regex.test(url) || ytRegex.test(url);
+  }
