@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Chat Socket.IO UNA</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font: 13px Helvetica, Arial; }
+      form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+      form input { border: 0; padding: 10px;}
+      form button { width: 10%; background: rgb(130, 224, 255);  border: none; padding: 10px; }
+      /* #messages { list-style-type: none; margin: 0; padding: 0; }
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+      #messages { margin-bottom: 40px }
+      #nombre, #m { display: inline-block;}
+      #m {width: 69%; margin-right: 4px;}
+      #nombre {width: 20%} */
+      #messages li { padding: 5px 10px; }
+      #messages li:nth-child(odd) { background: #eee; }
+      #messages { margin-bottom: 40px }
+      #nombre, #m { display: inline-block;}
+      #m {width: 69%; margin-right: 4px;}
+      #nombre {width: 20%}
+      .msg-own { text-align: right; background: #d1f7c4 !important; }
+      .msg-other { text-align: left; }
+    </style>
+  </head>
+  <body>
+    <ul id="messages"></ul>
+    <form action="">
+      <input id="nombre" autocomplete="off" placeholder="Username"/>
+      <input id="m" autocomplete="off" placeholder="Escriba un mensaje" /><button>Send</button>
+    </form>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+
+    var colorHexTxt = "";
+    var myName = ""; // <-- Nuevo
+
+    // genera colores aleatorios en hexadeximal
+    function getRandomColor() {
+        var letters = '0123456789ABCDEF';
+        var color = '#';
+        for (var i = 0; i < 6; i++) {
+          color += letters[Math.floor(Math.random() * 16)];
+        }
+
+        return color;
+     }
+
+      $(function () {
+        var socket = io();
+
+        // emite evento al servidor
+        
+        $('form').submit(function(){
+            var nombreTxt = $('#nombre').val() || "Anomimo";
+            var mensajeTxt = $('#m').val();
+
+            if (colorHexTxt == "") {
+                colorHexTxt = getRandomColor();
+            }
+
+            if (!myName) { // Guarda tu nombre la primera vez
+                myName = nombreTxt;
+            }
+
+            var jsonMsg = { nombre: nombreTxt, mensaje: mensajeTxt, color: colorHexTxt };
+            socket.emit('Evento-Mensaje-Server', JSON.stringify(jsonMsg));
+            $('#m').val('');
+            return false;
+        });
+
+        // ... (resto del código) ...
+
+        // socket.on('Evento-Mensaje-Server', function(msg){
+        //     var msgJson = JSON.parse(msg);
+        //     var mensajeDisplay = "<b style='color:"+ msgJson.color +"'>" + msgJson.nombre + "</b>: " + msgJson.mensaje;
+        //     $('#messages').append($('<li>').html(mensajeDisplay));
+        //     window.scrollTo(0, document.body.scrollHeight);
+        // });
+        socket.on('Evento-Mensaje-Server', function(msg){
+            var msgJson = JSON.parse(msg);
+
+            // Detecta si el mensaje es una URL de imagen o video
+            function mediaHtml(url) {
+                // Imágenes
+                if (url.match(/\.(jpeg|jpg|gif|png)$/i)) {
+                    return "<img src='" + url + "' style='max-width:300px;max-height:200px;' />";
+                }
+                // Videos (YouTube)
+                if (url.match(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/)) {
+                    // Extrae el ID del video
+                    var videoId = url.split('v=')[1] || url.split('/').pop();
+                    if (videoId.indexOf('&') !== -1) {
+                        videoId = videoId.split('&')[0];
+                    }
+                    return "<iframe width='300' height='200' src='https://www.youtube.com/embed/" + videoId + "' frameborder='0' allowfullscreen></iframe>";
+                }
+                // Videos MP4
+                if (url.match(/\.(mp4|webm|ogg)$/i)) {
+                    return "<video controls style='max-width:300px;max-height:200px;'><source src='" + url + "'></video>";
+                }
+                return null;
+            }
+
+            var media = mediaHtml(msgJson.mensaje);
+            var mensajeDisplay = "<b style='color:"+ msgJson.color +"'>" + msgJson.nombre + "</b>: ";
+
+            if (media) {
+                mensajeDisplay += media;
+            } else {
+                mensajeDisplay += msgJson.mensaje;
+            }
+
+            // Aplica clase según el remitente
+            var clase = (msgJson.nombre === myName) ? "msg-own" : "msg-other";
+            $('#messages').append($('<li>').addClass(clase).html(mensajeDisplay));
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+      });
+    </script>
+  </body>
+</html>
